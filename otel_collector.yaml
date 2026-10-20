@@ -1,0 +1,41 @@
+extensions:
+  bearertokenauth:
+    token: ${env:OTEL_AUTH_TOKEN}
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        auth:
+          authenticator: bearertokenauth
+
+processors:
+  batch:
+    send_batch_size: 10000
+    timeout: 10s
+
+exporters:
+  debug:
+    verbosity: detailed
+  otlphttp/openobserve:
+    endpoint: http://open_observe:5080/open-observe/api/default
+    headers:
+      Authorization: ${env:OPEN_OBSERVE_AUTHORIZATION}
+      stream-name: default
+
+service:
+  extensions: [bearertokenauth]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/openobserve]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/openobserve]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/openobserve]

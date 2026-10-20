@@ -1,0 +1,37 @@
+entryPoints:
+  web-secure:
+    address: :443
+    http:
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: alvarengacarlos.com
+            sans:
+              - www.alvarengacarlos.com
+  registry:
+    address: :2001
+    http:
+      tls:
+        certResolver: letsencrypt
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: dev@alvarengacarlos.com
+      storage: /etc/traefik/acme/acme.json
+      tlsChallenge: {}
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic/
+    watch: true
+
+api:
+  dashboard: false
+  debug: false
+
+log:
+  level: INFO

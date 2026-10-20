@@ -1,0 +1,18 @@
+http:
+  routers:
+    keycloak:
+      rule: PathPrefix(`/keycloak`)
+      service: keycloak
+    woodpecker:
+      rule: PathPrefix(`/woodpecker`)
+      service: woodpecker
+
+  services:
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: http://keycloak:8080
+    woodpecker:
+      loadBalancer:
+        servers:
+          - url: http://woodpecker_server:8000

@@ -1,0 +1,4 @@
+.env
+acme.json
+dynamic/*
+!dynamic/infra.yaml

@@ -1,0 +1,42 @@
+http:
+  routers:
+    keycloak:
+      rule: PathPrefix(`/keycloak`)
+      service: keycloak
+    woodpecker:
+      rule: PathPrefix(`/woodpecker`)
+      service: woodpecker
+    registry:
+      rule: Host(`alvarengacarlos.com`)
+      entryPoints:
+        - registry
+      service: registry
+    otel-collector:
+      rule: PathPrefix(`/otel-collector`)
+      service: otel-collector
+      middlewares:
+        - strip-prefix
+  
+  middlewares:
+    strip-prefix:
+      stripPrefix:
+        prefixes:
+          - /otel-collector
+
+  services:
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: http://keycloak:8080
+    woodpecker:
+      loadBalancer:
+        servers:
+          - url: http://woodpecker_server:8000
+    registry:
+      loadBalancer:
+        servers:
+          - url: http://registry:5000
+    otel-collector:
+      loadBalancer:
+        servers:
+          - url: http://otel_collector:4318

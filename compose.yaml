@@ -1,0 +1,96 @@
+networks:
+  postgres_net:
+    name: postgres_net
+    external: true
+
+  traefik_net:
+    name: traefik_net
+    external: true
+
+  woodpecker_net:
+    name: woodpecker_net
+
+volumes:
+  postgres_vol:
+  woodpecker_agent_vol:
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    ports:
+      - 2000:5432
+    volumes:
+      - postgres_vol:/var/lib/postgresql/data
+    networks:
+      - postgres_net
+
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    ports:
+      - 443:443
+    volumes:
+      - ./traefik.yaml:/etc/traefik/traefik.yaml
+      - ./dynamic/:/etc/traefik/dynamic/
+      - ./acme.json:/etc/traefik/acme/acme.json
+    networks:
+      - traefik_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?}
+      KC_DB: postgres
+      KC_DB_USERNAME: ${POSTGRES_USER:?}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_HOSTNAME: ${DOMAIN:?}/keycloak
+      KC_HTTP_RELATIVE_PATH: /keycloak
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: true
+    networks:
+      - postgres_net
+      - traefik_net
+    command: start
+    depends_on:
+      - postgres
+
+  woodpecker_server:
+    image: woodpeckerci/woodpecker-server:v3
+    restart: unless-stopped
+    environment:
+      WOODPECKER_ADMIN: ${WOODPECKER_ADMIN:?}
+      WOODPECKER_HOST: ${DOMAIN:?}/woodpecker
+      WOODPECKER_GITHUB: true
+      WOODPECKER_GITHUB_CLIENT: ${WOODPECKER_GITHUB_CLIENT:?}
+      WOODPECKER_GITHUB_SECRET: ${WOODPECKER_GITHUB_SECRET:?}
+      WOODPECKER_GRPC_SECRET: ${WOODPECKER_GRPC_SECRET:?}
+      WOODPECKER_AGENT_SECRET: ${WOODPECKER_AGENT_SECRET:?}
+      WOODPECKER_DATABASE_DRIVER: postgres
+      WOODPECKER_DATABASE_DATASOURCE: postgres://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/woodpecker?sslmode=disable
+    networks:
+      - postgres_net
+      - traefik_net
+      - woodpecker_net
+
+  woodpecker_agent:
+    image: woodpeckerci/woodpecker-agent:v3
+    restart: unless-stopped
+    environment:
+      WOODPECKER_BACKEND: docker
+      WOODPECKER_SERVER: woodpecker_server:9000
+      WOODPECKER_AGENT_SECRET: ${WOODPECKER_AGENT_SECRET:?}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - woodpecker_agent_vol:/etc/woodpecker
+    networks:
+      - woodpecker_net
+    command: agent
+    depends_on:
+      - woodpecker_server
